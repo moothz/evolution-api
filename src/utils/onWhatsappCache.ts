@@ -86,13 +86,24 @@ export async function saveOnWhatsappCache(data: ISaveOnWhatsappCacheParams[]) {
 
       const expandedJids = allJids.flatMap((jid) => getAvailableNumbers(jid));
 
-      const existingRecord = await prismaRepository.isOnWhatsapp.findFirst({
+      // 1. Busca só pelo jidOptions 
+      let existingRecord = await prismaRepository.isOnWhatsapp.findFirst({
         where: {
           OR: expandedJids.map((jid) => ({ jidOptions: { contains: jid } })),
         },
       });
 
-      logger.verbose(`Register exists: ${existingRecord ? existingRecord.remoteJid : 'não not found'}`);
+      logger.verbose(`Register exists (by jidOptions): [${expandedJids.join(",")}] => ${existingRecord ? existingRecord.remoteJid : 'Not found'}`);
+
+      // 2. Se não encontrou, verifica se existe um remoteJid já, pois é unique
+      if (!existingRecord) {
+        existingRecord = await prismaRepository.isOnWhatsapp.findFirst({
+          where: {
+            remoteJid: remoteJid,
+          },
+        });
+        logger.verbose(`Register exists (by remoteJid): [${remoteJid}] => ${existingRecord ? existingRecord.remoteJid : 'Not found'}`);
+      }
 
       const finalJidOptions = [...expandedJids];
 
